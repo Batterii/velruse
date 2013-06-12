@@ -102,9 +102,13 @@ class GoogleOAuth2Provider(object):
     def login(self, request):
         """Initiate a google login"""
         scope = ' '.join(request.POST.getall('scope')) or self.scope
-        request.session['state'] = state = uuid.uuid4().hex
+
+        csrf_token = uuid.uuid4().hex
+        request.session['csrf_token'] = csrf_token
 
         approval_prompt = request.POST.get('approval_prompt', 'auto')
+
+        state = dict(csrf_token=csrf_token, client_state=request.GET.get('client_state'))
 
         auth_url = flat_url(
             '%s://%s/o/oauth2/auth' % (self.protocol, self.domain),
@@ -114,19 +118,21 @@ class GoogleOAuth2Provider(object):
             redirect_uri=request.route_url(self.callback_route),
             approval_prompt=approval_prompt,
             access_type='offline',
-            state=state)
+            state=state.dumps())
         return HTTPFound(location=auth_url)
 
     def callback(self, request):
         """Process the google redirect"""
-        sess_state = request.session.get('state')
-        req_state = request.GET.get('state')
-        if not sess_state or sess_state != req_state:
+        sess_csrf_token = request.session.get('csrf_token')
+        req_state_dict = request.GET.get('state').loads()
+
+        req_csrf_token = req_state_dict['csrf_token']
+        if not sess_csrf_token or sess_csrf_token != req_csrf_token:
             raise CSRFError(
                 'CSRF Validation check failed. Request state {req_state} is '
                 'not the same as session state {sess_state}'.format(
-                    req_state=req_state,
-                    sess_state=sess_state
+                    req_state=req_csrf_token,
+                    sess_state=sess_csrf_token
                 )
             )
         code = request.GET.get('code')
@@ -176,4 +182,5 @@ class GoogleOAuth2Provider(object):
         return GoogleAuthenticationComplete(profile=profile,
                                             credentials=cred,
                                             provider_name=self.name,
-                                            provider_type=self.type)
+                                            provider_type=self.type,
+                                            client_state=req_state_dict['client_state'])
