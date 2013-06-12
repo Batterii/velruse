@@ -29,7 +29,7 @@ docs_extras = [
 ]
 
 setup(name='velruse',
-      version='batterii-0.1',
+      version='batterii0.1',
       description=(
           'Simplifying third-party authentication for web applications.'),
       long_description='',
