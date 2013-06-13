@@ -2,6 +2,7 @@ import uuid
 
 from pyramid.httpexceptions import HTTPFound
 from pyramid.security import NO_PERMISSION_REQUIRED
+from pickle import loads, dumps
 
 import requests
 
@@ -118,13 +119,13 @@ class GoogleOAuth2Provider(object):
             redirect_uri=request.route_url(self.callback_route),
             approval_prompt=approval_prompt,
             access_type='offline',
-            state=state.dumps())
+            state=dumps(state))
         return HTTPFound(location=auth_url)
 
     def callback(self, request):
         """Process the google redirect"""
         sess_csrf_token = request.session.get('csrf_token')
-        req_state_dict = request.GET.get('state').loads()
+        req_state_dict = loads(request.GET.get('state'))
 
         req_csrf_token = req_state_dict['csrf_token']
         if not sess_csrf_token or sess_csrf_token != req_csrf_token:
