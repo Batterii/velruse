@@ -128,7 +128,7 @@ class GoogleOAuth2Provider(object):
 
         approval_prompt = request.POST.get('approval_prompt', 'auto')
 
-        state = dict(csrf_token=csrf_token, client_state=request.GET.get('client_state'))
+        state = dict(csrf_token=csrf_token, client_state=request.POST.get('client_state'))
 
         auth_url = flat_url(
             '%s://%s/o/oauth2/auth' % (self.protocol, self.domain),
