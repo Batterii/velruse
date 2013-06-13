@@ -22,6 +22,25 @@ GOOGLE_OAUTH2_DOMAIN = 'accounts.google.com'
 
 class GoogleAuthenticationComplete(AuthenticationComplete):
     """Google OAuth 2.0 auth complete"""
+    def __init__(self,
+                 profile=None,
+                 credentials=None,
+                 provider_name=None,
+                 provider_type=None,
+                 client_state=None):
+        """Create an AuthenticationComplete object with user data"""
+        AuthenticationComplete.__init__(self, profile, credentials, provider_name, provider_type)
+        self.client_state = client_state
+
+class GoogleAuthenticationDenied(AuthenticationDenied):
+    def __init__(self,
+                 reason=None,
+                 provider_name=None,
+                 provider_type=None,
+                 client_state=None):
+        """Create an AuthenticationDenied object with user data"""
+        AuthenticationDenied.__init__(self, reason, provider_name, provider_type)
+        self.client_state = client_state
 
 def includeme(config):
     """Activate the ``google_oauth2`` Pyramid plugin via
@@ -139,7 +158,7 @@ class GoogleOAuth2Provider(object):
         code = request.GET.get('code')
         if not code:
             reason = request.GET.get('error', 'No reason provided.')
-            return AuthenticationDenied(reason=reason,
+            return GoogleAuthenticationDenied(reason=reason,
                                         provider_name=self.name,
                                         provider_type=self.type)
 
