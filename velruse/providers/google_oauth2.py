@@ -120,15 +120,21 @@ class GoogleOAuth2Provider(object):
             self.scope = ' '.join((self.profile_scope, self.email_scope))
 
     def login(self, request):
-        """Initiate a google login"""
-        scope = ' '.join(request.POST.getall('scope')) or self.scope
 
+        if request.POST:
+            scope = ' '.join(request.POST.getall('scope')) or self.scope
+            approval_prompt = request.POST.get('approval_prompt', 'auto')
+            client_state = client_state=request.POST.get('client_state')
+        else:
+            scope = ' '.join(request.GET.getall('scope')) or self.scope
+            approval_prompt = request.GET.get('approval_prompt', 'auto')
+            client_state = client_state=request.GET.get('client_state')
+
+        """Initiate a google login"""
         csrf_token = uuid.uuid4().hex
         request.session['csrf_token'] = csrf_token
 
-        approval_prompt = request.POST.get('approval_prompt', 'auto')
-
-        state = dict(csrf_token=csrf_token, client_state=request.POST.get('client_state'))
+        state = dict(csrf_token=csrf_token, client_state=client_state)
 
         auth_url = flat_url(
             '%s://%s/o/oauth2/auth' % (self.protocol, self.domain),
