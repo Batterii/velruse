@@ -203,6 +203,7 @@ class GoogleOAuth2Provider(object):
             profile['familyName'] = data['family_name']
             profile['preferredUsername'] = data['email']
             profile['verifiedEmail'] = data['email']
+            profile['imageUrl'] = data['picture']
             profile['emails'] = [{'value': data['email']}]
 
         cred = {'oauthAccessToken': access_token,
