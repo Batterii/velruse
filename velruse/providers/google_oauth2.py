@@ -2,7 +2,6 @@ import uuid
 
 from pyramid.httpexceptions import HTTPFound
 from pyramid.security import NO_PERMISSION_REQUIRED
-from pickle import loads, dumps
 
 import requests
 
@@ -22,25 +21,6 @@ GOOGLE_OAUTH2_DOMAIN = 'accounts.google.com'
 
 class GoogleAuthenticationComplete(AuthenticationComplete):
     """Google OAuth 2.0 auth complete"""
-    def __init__(self,
-                 profile=None,
-                 credentials=None,
-                 provider_name=None,
-                 provider_type=None,
-                 client_state=None):
-        """Create an AuthenticationComplete object with user data"""
-        AuthenticationComplete.__init__(self, profile, credentials, provider_name, provider_type)
-        self.client_state = client_state
-
-class GoogleAuthenticationDenied(AuthenticationDenied):
-    def __init__(self,
-                 reason=None,
-                 provider_name=None,
-                 provider_type=None,
-                 client_state=None):
-        """Create an AuthenticationDenied object with user data"""
-        AuthenticationDenied.__init__(self, reason, provider_name, provider_type)
-        self.client_state = client_state
 
 def includeme(config):
     """Activate the ``google_oauth2`` Pyramid plugin via
@@ -74,7 +54,7 @@ def add_google_login(config,
                      scope=None,
                      login_path='/login/google',
                      callback_path='/login/google/callback',
-                     name='google_oauth2'):
+                     name='google'):
     """
     Add a Google login provider to the application supporting the new
     OAuth2 protocol.
@@ -120,21 +100,11 @@ class GoogleOAuth2Provider(object):
             self.scope = ' '.join((self.profile_scope, self.email_scope))
 
     def login(self, request):
-
-        if request.POST:
-            scope = ' '.join(request.POST.getall('scope')) or self.scope
-            approval_prompt = request.POST.get('approval_prompt', 'auto')
-            client_state = client_state=request.POST.get('client_state')
-        else:
-            scope = ' '.join(request.GET.getall('scope')) or self.scope
-            approval_prompt = request.GET.get('approval_prompt', 'auto')
-            client_state = client_state=request.GET.get('client_state')
-
         """Initiate a google login"""
-        csrf_token = uuid.uuid4().hex
-        request.session['csrf_token'] = csrf_token
+        scope = ' '.join(request.POST.getall('scope')) or self.scope
+        request.session['state'] = state = uuid.uuid4().hex
 
-        state = dict(csrf_token=csrf_token, client_state=client_state)
+        approval_prompt = request.POST.get('approval_prompt', 'auto')
 
         auth_url = flat_url(
             '%s://%s/o/oauth2/auth' % (self.protocol, self.domain),
@@ -144,27 +114,25 @@ class GoogleOAuth2Provider(object):
             redirect_uri=request.route_url(self.callback_route),
             approval_prompt=approval_prompt,
             access_type='offline',
-            state=dumps(state))
+            state=state)
         return HTTPFound(location=auth_url)
 
     def callback(self, request):
         """Process the google redirect"""
-        sess_csrf_token = request.session.get('csrf_token')
-        req_state_dict = loads(request.GET.get('state'))
-
-        req_csrf_token = req_state_dict['csrf_token']
-        if not sess_csrf_token or sess_csrf_token != req_csrf_token:
+        sess_state = request.session.get('state')
+        req_state = request.GET.get('state')
+        if not sess_state or sess_state != req_state:
             raise CSRFError(
                 'CSRF Validation check failed. Request state {req_state} is '
                 'not the same as session state {sess_state}'.format(
-                    req_state=req_csrf_token,
-                    sess_state=sess_csrf_token
+                    req_state=req_state,
+                    sess_state=sess_state
                 )
             )
         code = request.GET.get('code')
         if not code:
             reason = request.GET.get('error', 'No reason provided.')
-            return GoogleAuthenticationDenied(reason=reason,
+            return AuthenticationDenied(reason=reason,
                                         provider_name=self.name,
                                         provider_type=self.type)
 
@@ -199,11 +167,8 @@ class GoogleOAuth2Provider(object):
                 'userid': data['id']
             }]
             profile['displayName'] = data['name']
-            profile['givenName'] = data['given_name']
-            profile['familyName'] = data['family_name']
             profile['preferredUsername'] = data['email']
             profile['verifiedEmail'] = data['email']
-            profile['imageUrl'] = data['picture']
             profile['emails'] = [{'value': data['email']}]
 
         cred = {'oauthAccessToken': access_token,
@@ -211,5 +176,4 @@ class GoogleOAuth2Provider(object):
         return GoogleAuthenticationComplete(profile=profile,
                                             credentials=cred,
                                             provider_name=self.name,
-                                            provider_type=self.type,
-                                            client_state=req_state_dict['client_state'])
+                                            provider_type=self.type)
