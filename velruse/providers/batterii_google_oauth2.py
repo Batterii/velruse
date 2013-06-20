@@ -1,4 +1,13 @@
 import uuid
+# Batterii Google Oauth2 Provider
+# Note: This is a fork of the original Velruse Google provider
+#
+# Changes from the original
+#   - We can't use session state so had to remove the XCSRF logic
+#   - We need to pass state from original login process to the final call back so we added a client_state param to login
+#
+## TODO We need to support overriding the static settings on a per account basis at some point...
+
 
 from pyramid.httpexceptions import HTTPFound
 from pyramid.security import NO_PERMISSION_REQUIRED
@@ -74,7 +83,7 @@ def add_google_login(config,
                      scope=None,
                      login_path='/login/google',
                      callback_path='/login/google/callback',
-                     name='google_oauth2'):
+                     name='google'):
     """
     Add a Google login provider to the application supporting the new
     OAuth2 protocol.
@@ -106,7 +115,7 @@ class GoogleOAuth2Provider(object):
                  consumer_secret,
                  scope):
         self.name = name
-        self.type = 'google_oauth2'
+        self.type = 'batterii_google_oauth2'
         self.consumer_key = consumer_key
         self.consumer_secret = consumer_secret
         self.protocol = 'https'
